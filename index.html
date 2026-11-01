@@ -36,7 +36,7 @@ html{width:100%;height:100%;height:-webkit-fill-available}
 body{width:100%;height:100%;min-height:-webkit-fill-available;background:var(--bg);
   color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;
   overflow:hidden;overscroll-behavior:none;position:fixed;inset:0}
-#app{width:100%;height:100%;height:100dvh;display:flex;flex-direction:column;
+#app{width:100%;height:100%;height:calc(var(--vh,1vh) * 100);display:flex;flex-direction:column;
   overflow:hidden;max-width:430px;margin:0 auto}
 
 /* TOPBAR */
@@ -55,7 +55,7 @@ body{width:100%;height:100%;min-height:-webkit-fill-available;background:var(--b
 
 /* SCROLL */
 #scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
-  padding:0 0 calc(var(--safe-bot) + 20px)}
+  padding:0 0 calc(var(--safe-bot) + 24px)}
 #scroll::-webkit-scrollbar{display:none}
 
 /* SCREENS */
@@ -235,17 +235,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 .dual-lbl{flex:1;text-align:center;font-size:10px;color:var(--muted)}
 
 /* GOALS */
-.goal-card{background:var(--surface);border-radius:14px;border:.5px solid var(--border);
-  padding:13px;margin-bottom:8px}
-.goal-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
-.goal-name{font-size:14px;font-weight:600;letter-spacing:-.2px}
-.eta-pill{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px}
-.goal-track{height:5px;background:var(--s3);border-radius:3px;overflow:hidden;margin:7px 0}
-.goal-fill{height:100%;border-radius:3px;background:var(--text);
-  transition:width 1s cubic-bezier(.22,1,.36,1)}
-.goal-meta{display:flex;justify-content:space-between}
-.goal-meta span{font-size:11px;color:var(--muted)}
-.goal-footer{display:flex;justify-content:flex-end;margin-top:9px}
 
 /* FORM */
 .fc{background:var(--surface);border-radius:14px;border:.5px solid var(--border);
@@ -561,8 +550,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
     </div>
   </div>
 
-  </div>
-
   <div class="card">
     <div class="card-head">
       <span class="ch-t">Proiezione saldo</span>
@@ -576,7 +563,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 
   <div class="upd-row">
     <span class="upd-note" id="lastUpd">Mai aggiornato</span>
-    <button class="link-btn" onclick="nav('impostazioni')">Aggiorna →</button>
+    <button class="link-btn" onclick="nav('impostazioni')">Aggiorna saldo e previsione →</button>
   </div>
 
   <!-- OBIETTIVO SALDO -->
@@ -789,8 +776,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
     </div>
   </div>
 
-  <button class="pri-btn" onclick="doSave()" style="margin-bottom:9px">Salva e aggiorna</button>
-
   <div class="stitle">Backup dati</div>
   <div class="fc">
     <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px">
@@ -802,7 +787,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
     <button class="pri-btn" onclick="document.getElementById('importFile').click()" style="background:var(--s2);color:var(--text);border:.5px solid var(--border2);margin-top:0">📥 Ripristina backup</button>
   </div>
 
-  <button class="sec-btn" onclick="doReset()" style="margin-bottom:30px">Reset tutti i dati</button>
+  <div style="border-top:.5px solid var(--border);margin-top:16px;padding-top:16px">
+    <button class="pri-btn" onclick="doSave()" style="margin:0">Salva e aggiorna</button>
+  </div>
+
+  <button class="sec-btn" onclick="doReset()" style="margin-bottom:60px;margin-top:8px">Reset tutti i dati</button>
 </div>
 
 </div><!-- /scroll -->
@@ -903,6 +892,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;heigh
 <div id="toast"></div>
 
 <script>
+// Fix iOS Safari: window.innerHeight include a volte l'area coperta dalla toolbar
+// del browser (indirizzo, frecce, ecc), rendendo il fondo della pagina irraggiungibile.
+// visualViewport riporta l'altezza REALMENTE visibile, escludendo la UI di Safari.
+function setRealVh(){
+  var h=(window.visualViewport?window.visualViewport.height:window.innerHeight);
+  document.documentElement.style.setProperty('--vh',(h*0.01)+'px');
+}
+setRealVh();
+window.addEventListener('resize', setRealVh);
+window.addEventListener('orientationchange', function(){setTimeout(setRealVh,100);});
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', setRealVh);
+}
+
 var MI=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 var MIF=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 var LK='flusso2_v2';
@@ -911,7 +914,7 @@ var TABS=['oggi','piano','impostazioni'];
 var S={
   stipendio:0, spese:0, saldo:0, soglia:2000, targetSaldo:0,
   entrateAttese:0, speseAttese:0,
-  storico:[], goals:[], piano:[]
+  storico:[], piano:[]
 };
 
 function sv(){try{localStorage.setItem(LK,JSON.stringify(S));}catch(e){}}
@@ -1158,21 +1161,6 @@ function renderProssimaAzione(){
     }
   }
 
-  // Regola 6: obiettivo in ritardo
-  var goalLento=null;
-  for(var g=0;g<S.goals.length;g++){
-    var gg=S.goals[g];
-    var rem=gg.target-gg.current;
-    var mens=gg.monthly>0?gg.monthly:(media&&media>0?media*0.3:0);
-    var mths=mens>0?Math.ceil(rem/mens):9999;
-    if(mths>24&&rem>0){goalLento=gg;break;}
-  }
-  if(goalLento){
-    return mkAzione('info','🎯','Obiettivo "'+goalLento.name+'" è lento',
-      'Al ritmo attuale ci vorranno molti mesi. Valuta di dedicare di più.',
-      function(){nav('oggi');});
-  }
-
   // Regola 7: tutto ok
   mkAzione('ok','✓','Tutto in ordine',
     'Proiezione positiva per i prossimi 12 mesi. Prossimo aggiornamento: fine mese.',
@@ -1326,20 +1314,10 @@ function renderHome(){
     var mlHC=document.getElementById('homeML'); if(mlHC) mlHC.innerHTML='';
   }
 
-  // ── STATUS ──
-
-  function setStatus(col,bg,msg){
-    dot.style.background=col;
-    bar.style.cssText='display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:12px;margin-bottom:12px;background:'+bg;
-    txt.textContent=msg; txt.style.color=col;
-  }
-  if(S.stipendio===0) setStatus('var(--faint)','var(--s2)','Nessun dato — vai in Impostazioni');
-  else if(disponibile<0||netto<0) setStatus('var(--red)','var(--rbg)','Attenzione: situazione critica');
-  else if(tasso<10||disponibile<300) setStatus('var(--amber)','var(--abg)','Margine stretto — tieni d’occhio');
-  else setStatus('var(--green)','var(--gbg)','Tutto in ordine');
-
-
-
+  // prossima azione + banners (status bar removed)
+  renderProssimaAzione();
+  renderReminder();
+  renderAnomaly(netto,media);
   renderTargetSaldo();
 }
 
@@ -1365,7 +1343,7 @@ function renderReminder(){
     el.innerHTML='<div class="banner" style="background:var(--bbg);color:var(--blue)">'
       +'<div class="banner-body"><div class="bn-t" style="color:var(--blue)">'+msg+'</div>'
       +'<div class="bn-s" style="color:var(--blue)">'+sub+'</div></div>'
-      +'<button class="banner-btn" style="color:var(--blue)" onclick="nav(\'setup\')">Vai →</button>'
+      +'<button class="banner-btn" style="color:var(--blue)" onclick="nav(\'impostazioni\')">Aggiorna →</button>'
       +'</div>';
   }catch(e){}
 }
@@ -1517,13 +1495,14 @@ function renderSaldoEvol(){ /* removed */ }
 function addMese(){
   var mi=parseInt(document.getElementById('stM').value);
   var anno=parseInt(document.getElementById('stA').value)||new Date().getFullYear();
-  var stip=parseFloat(document.getElementById('stSt').value)||0;
-  var spese=parseFloat(document.getElementById('stSp').value)||0;
+  var stipRaw=document.getElementById('stSt').value.trim();
+  var speseRaw=document.getElementById('stSp').value.trim();
+  var stip=parseFloat(stipRaw);
+  var spese=parseFloat(speseRaw);
   var saldo=parseFloat(document.getElementById('stSa').value)||0;
   var nota=(document.getElementById('stNota').value||'').trim();
-  if(!stip){toast('Inserisci lo stipendio');return;}
-  if(!spese){toast('Inserisci le spese effettive');return;}
-  if(!spese){toast('Inserisci anche le spese');return;}
+  if(stipRaw===''||!isFinite(stip)||stip<0){toast('Inserisci uno stipendio valido');return;}
+  if(speseRaw===''||!isFinite(spese)||spese<0){toast('Inserisci spese valide');return;}
   // se esiste già un mese con stesso mi+anno, chiedi conferma
   var exists=S.storico.find(function(m){return m.mi===mi&&m.anno===anno;});
   if(exists){
@@ -1793,7 +1772,9 @@ function simUpd(){
   var rs=rb-men;
   // usa projectPiano: include gli eventi pianificati (coerente con Pianifica)
   var base=projectPiano();
-  var scen=projectPiano({saldo:S.saldo-acq,saldoFine:calcSaldoFineMese()-acq,risp:rs,addRecurr:men});
+  // projectPiano sottrae già addRecurr dai mesi futuri: mantieni la base
+  // del risparmio e applica la nuova spesa una sola volta.
+  var scen=projectPiano({saldo:S.saldo-acq,saldoFine:calcSaldoFineMese()-acq,risp:rb,addRecurr:men});
   var hasEvents=S.piano.some(function(p){return p.eventi&&p.eventi.length>0;});
   var diff=scen[11].sl-base[11].sl;
   var minS=scen.reduce(function(a,b){return a.sl<b.sl?a:b;});
@@ -1833,15 +1814,12 @@ function simUpd(){
 }
 
 // ── GOALS ──────────────────────────────────────────────────
-function addGoal(){ /* removed */ }
 
-function rmGoal(id){S.goals=S.goals.filter(function(g){return g.id!==id;});sv();renderGoals();}
 function togglePianoRow(compactEl){
   var detail=compactEl.parentElement.querySelector('.pr-detail');
   if(detail) detail.classList.toggle('open');
 }
 
-function renderGoals(){ /* removed */ }
 
 // ── SETUP ──────────────────────────────────────────────────
 function aggiornaSoglia(){
@@ -1870,20 +1848,25 @@ function renderSetup(){
   updateBackupLabel();
 }
 function doSave(){
-  S.stipendio=parseFloat(document.getElementById('sSt').value)||0;
-  S.spese=parseFloat(document.getElementById('sSp').value)||0;
-  S.saldo=parseFloat(document.getElementById('sSa').value)||0;
-  S.soglia=parseFloat(document.getElementById('sSog').value)||2000;
-  S.targetSaldo=parseFloat(document.getElementById('sTarget').value)||0;
-  S.entrateAttese=parseFloat(document.getElementById('sEntrateAttese').value)||0;
-  S.speseAttese=parseFloat(document.getElementById('sSpeseAttese').value)||0;
-  sv();
   try{
-    localStorage.setItem(LK+'_upd',new Date().toLocaleDateString('it-IT'));
-    localStorage.setItem(LK+'_noDemo','1');
-  }catch(e){}
-  toast('Salvato');
-  setTimeout(function(){nav('oggi');},500);
+    S.stipendio=parseFloat(document.getElementById('sSt').value)||0;
+    S.spese=parseFloat(document.getElementById('sSp').value)||0;
+    S.saldo=parseFloat(document.getElementById('sSa').value)||0;
+    S.soglia=parseFloat(document.getElementById('sSog').value)||S.spese||2000;
+    S.targetSaldo=parseFloat(document.getElementById('sTarget').value)||0;
+    S.entrateAttese=parseFloat(document.getElementById('sEntrateAttese').value)||0;
+    S.speseAttese=parseFloat(document.getElementById('sSpeseAttese').value)||0;
+    sv();
+    try{
+      localStorage.setItem(LK+'_upd',new Date().toLocaleDateString('it-IT'));
+      localStorage.setItem(LK+'_noDemo','1');
+    }catch(e){}
+    toast('Salvato');
+    setTimeout(function(){nav('oggi');},500);
+  }catch(err){
+    toast('Errore: '+err.message);
+    console.error('doSave error:',err);
+  }
 }
 function exportBackup(){
   try{
@@ -1917,7 +1900,7 @@ function importBackup(ev){
       }
       showConfirm('Ripristinare il backup?','I dati attuali verranno sovrascritti.',function(){
         Object.assign(S,{stipendio:0,spese:0,saldo:0,soglia:2000,targetSaldo:0,entrateAttese:0,speseAttese:0,
-          storico:[],goals:[],piano:[]},obj.state);
+          storico:[],piano:[]},obj.state);
         sv();
         renderSetup();
         toast('Backup ripristinato');
@@ -1939,7 +1922,7 @@ function updateBackupLabel(){
 
 function doReset(){
   showConfirm('Reset tutti i dati','Questa azione è irreversibile. Tutto verrà cancellato.',function(){
-    S={stipendio:0,spese:0,saldo:0,soglia:2000,targetSaldo:0,entrateAttese:0,speseAttese:0,storico:[],goals:[],piano:[]};
+    S={stipendio:0,spese:0,saldo:0,soglia:2000,targetSaldo:0,entrateAttese:0,speseAttese:0,storico:[],piano:[]};
     sv();
     try{
       localStorage.removeItem(LK+'_upd');
@@ -2021,7 +2004,7 @@ function obNext(step){
   if(step===3){
     var stip=parseFloat(document.getElementById('ob_stip').value)||0;
     var spese=parseFloat(document.getElementById('ob_spese').value)||0;
-    if(!stip||!spese){toast('Inserisci stipendio e spese');return;}
+    if(!stip||document.getElementById('ob_spese').value.trim()===''||!isFinite(spese)||spese<0){toast('Inserisci stipendio e spese valide');return;}
     obCalc();
   }
   obShowStep(step);
@@ -2073,16 +2056,14 @@ function loadDemo(){
       {mi:6,anno:2026,eventi:[{name:'Vacanze',amt:1500,tipo:'out'}]},
       {mi:9,anno:2026,eventi:[{name:'Tassa auto',amt:400,tipo:'out'},{name:'Bonus',amt:500,tipo:'in'}]}
     ];
-    S.goals=[
-      {id:10,name:'Vacanze',target:1500,current:600,monthly:200},
-      {id:11,name:'Fondo emergenza',target:6000,current:3000,monthly:0}
-    ];
     sv();
   }
 }
 
 // INIT
-ld(); loadDemo(); checkOnboarding(); renderHome();
+// Avvia l'onboarding sui dati vuoti: i valori dimostrativi non devono sembrare
+// dati personali già registrati.
+ld(); checkOnboarding(); renderHome();
 </script>
 </body>
 </html>
